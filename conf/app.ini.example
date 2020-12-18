@@ -1,0 +1,18 @@
+RUN_MODE = debug
+
+[app]
+PAGE_SIZE = 10
+JWT_SECRET = 111111111
+
+[server]
+HTTP_PORT = 
+READ_TIMEOUT = 60
+WRITE_TIMEOUT = 60
+
+[database]
+TYPE = mysql
+USER = derby
+PASSWORD = password
+HOST = 127.0.0.1:3306
+NAME = go-gin-example
+TABLE_PREFIX = blog_
