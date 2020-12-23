@@ -6,11 +6,11 @@ import (
 
 	"github.com/beslow/go-gin-example/pkg/setting"
 
-	"github.com/beslow/go-gin-example/routers/router"
+	"github.com/beslow/go-gin-example/routers"
 )
 
 func main() {
-	router := router.InitRouter()
+	router := routers.InitRouter()
 
 	s := &http.Server{
 		Addr:           fmt.Sprintf(":%d", setting.HTTPPort),
