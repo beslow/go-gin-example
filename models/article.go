@@ -9,7 +9,8 @@ import (
 // Article 文章
 type Article struct {
 	Model
-	TagID      int    `json:"tag_id"`
+	TagID      int    `json:"tag_id" gorm:"index"`
+	Tag        Tag    `json:"tag"`
 	Title      string `json:"title"`
 	Desc       string `json:"desc"`
 	Content    string `json:"content"`
@@ -34,7 +35,15 @@ func (article *Article) BeforeUpdate(scope *gorm.Scope) error {
 
 // GetArticles 获取文章列表
 func GetArticles(pageNum int, pageSize int, params interface{}) (articles []Article) {
-	db.Where(params).Offset(pageNum).Limit(pageSize).Find(&articles)
+	db.Preload("Tag").Where(params).Offset(pageNum).Limit(pageSize).Find(&articles)
+
+	return
+}
+
+// GetArticle 获得文章
+func GetArticle(id int) (article Article) {
+	db.Where("id = ?", id).First(&article)
+	db.Model(&article).Related(&article.Tag)
 
 	return
 }
@@ -47,16 +56,10 @@ func GetArticleTotal(maps interface{}) (count int) {
 }
 
 // AddArticle 添加文章
-func AddArticle(tagID int, title string, desc string, content string, state int) {
-	db.Create(&Article{
-		TagID:   tagID,
-		Title:   title,
-		Desc:    desc,
-		Content: content,
-		State:   state,
-	})
+func AddArticle(article *Article) bool {
+	db.Create(article)
 
-	return
+	return true
 }
 
 // ExistArticleByID 根据ID判断文章是否存在

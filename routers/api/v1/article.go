@@ -16,13 +16,14 @@ import (
 func GetArticles(c *gin.Context) {
 	maps := make(map[string]interface{})
 	data := make(map[string]interface{})
+	valid := validation.Validation{}
 
-	var state = 0
+	var state = -1
 	if arg := c.Query("state"); arg != "" {
 		state = com.StrTo(arg).MustInt()
+		maps["state"] = state
+		valid.Range(state, 0, 1, "state").Message("状态只允许为0或1")
 	}
-
-	maps["state"] = state
 
 	articles := models.GetArticles(util.GetPage(c), setting.PageSize, maps)
 
@@ -38,6 +39,38 @@ func GetArticles(c *gin.Context) {
 	})
 }
 
+// GetArticle 获取指定文章
+func GetArticle(c *gin.Context) {
+	id := com.StrTo(c.Param("id")).MustInt()
+
+	valid := validation.Validation{}
+	valid.Min(id, 1, "id").Message("ID必须大于0")
+	var data interface{}
+
+	code := e.INVALID_PARAMS
+	msg := ""
+	if !valid.HasErrors() {
+		if models.ExistArticleByID(id) {
+			data = models.GetArticle(id)
+			code = e.SUCCESS
+		} else {
+			code = e.ERROR_NOT_EXIST_ARTICLE
+		}
+	} else {
+		for _, err := range valid.Errors {
+			msg += err.Message + ", "
+		}
+	}
+	if msg == "" {
+		msg = e.GetMsg(code)
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code": code,
+		"msg":  msg,
+		"data": data,
+	})
+}
+
 // AddArticle 添加文章
 func AddArticle(c *gin.Context) {
 
@@ -45,12 +78,10 @@ func AddArticle(c *gin.Context) {
 	c.BindJSON(&articleParams)
 
 	tagID := articleParams.TagID
-	title := articleParams.Title
-	content := articleParams.Content
 
 	valid := validation.Validation{}
-	valid.Required(title, "title").Message("文章标题不能为空")
-	valid.Required(content, "content").Message("文章内容不能为空")
+	valid.Required(articleParams.Title, "title").Message("文章标题不能为空")
+	valid.Required(articleParams.Content, "content").Message("文章内容不能为空")
 
 	if tagID != 0 && !models.ExistTagByID(tagID) {
 		valid.SetError("TagID", "关联的标签不存在1")
@@ -66,7 +97,7 @@ func AddArticle(c *gin.Context) {
 			msg += err.Message + ", "
 		}
 	} else {
-		models.AddArticle(tagID, title, articleParams.Desc, content, articleParams.State)
+		models.AddArticle(&articleParams)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
