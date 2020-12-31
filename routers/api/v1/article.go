@@ -25,16 +25,36 @@ func GetArticles(c *gin.Context) {
 		valid.Range(state, 0, 1, "state").Message("状态只允许为0或1")
 	}
 
-	articles := models.GetArticles(util.GetPage(c), setting.PageSize, maps)
+	var tagID = -1
+	if arg := c.Query("tag_id"); arg != "" {
+		tagID = com.StrTo(arg).MustInt()
+		maps["tag_id"] = tagID
+		valid.Min(tagID, 1, "tag_id").Message("标签ID必须大于0")
+	}
 
-	data["list"] = articles
-	data["total"] = models.GetArticleTotal(articles)
+	code := e.INVALID_PARAMS
+	var msg string
 
-	code := e.SUCCESS
+	if !valid.HasErrors() {
+		articles := models.GetArticles(util.GetPage(c), setting.PageSize, maps)
+
+		data["list"] = articles
+		data["total"] = models.GetArticleTotal(maps)
+
+		code = e.SUCCESS
+	} else {
+		for _, err := range valid.Errors {
+			msg += err.Message + ", "
+		}
+	}
+
+	if msg == "" {
+		msg = e.GetMsg(code)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": code,
-		"msg":  e.GetMsg(code),
+		"msg":  msg,
 		"data": data,
 	})
 }
@@ -73,19 +93,10 @@ func GetArticle(c *gin.Context) {
 
 // AddArticle 添加文章
 func AddArticle(c *gin.Context) {
-
-	var articleParams models.Article
+	articleParams := make(map[string]interface{})
 	c.BindJSON(&articleParams)
 
-	tagID := articleParams.TagID
-
-	valid := validation.Validation{}
-	valid.Required(articleParams.Title, "title").Message("文章标题不能为空")
-	valid.Required(articleParams.Content, "content").Message("文章内容不能为空")
-
-	if tagID != 0 && !models.ExistTagByID(tagID) {
-		valid.SetError("TagID", "关联的标签不存在1")
-	}
+	valid := models.ValidationArticle(articleParams, "create")
 
 	code := e.SUCCESS
 	msg := e.GetMsg(code)
@@ -97,7 +108,7 @@ func AddArticle(c *gin.Context) {
 			msg += err.Message + ", "
 		}
 	} else {
-		models.AddArticle(&articleParams)
+		models.AddArticle(articleParams)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -113,35 +124,11 @@ func EditArticle(c *gin.Context) {
 	code := e.SUCCESS
 	msg := e.GetMsg(code)
 	if models.ExistArticleByID(id) {
-		maps := make(map[string]interface{})
-		var articleParams models.Article
-		valid := validation.Validation{}
+		var articleParams map[string]interface{}
+
 		c.ShouldBind(&articleParams)
-		tagID := articleParams.TagID
-		if tagID != 0 {
-			if tagID != 0 && !models.ExistTagByID(tagID) {
-				valid.SetError("TagID", "关联的标签不存在")
-			} else {
-				maps["TagID"] = tagID
-			}
-		}
 
-		title := articleParams.Title
-		if title != "" {
-			maps["Title"] = title
-		}
-
-		desc := articleParams.Desc
-		if desc != "" {
-			maps["Desc"] = desc
-		}
-
-		content := articleParams.Content
-		if content != "" {
-			maps["Content"] = content
-		}
-
-		maps["State"] = articleParams.State
+		valid := models.ValidationArticle(articleParams, "update")
 
 		if valid.HasErrors() {
 			code = e.INVALID_PARAMS
@@ -150,7 +137,7 @@ func EditArticle(c *gin.Context) {
 				msg += err.Message + ", "
 			}
 		} else {
-			models.EditArticle(id, maps)
+			models.EditArticle(id, articleParams)
 		}
 
 	} else {

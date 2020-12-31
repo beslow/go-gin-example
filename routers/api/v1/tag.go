@@ -57,6 +57,7 @@ func AddTag(c *gin.Context) {
 	valid.Range(state, 0, 1, "state").Message("状态只允许0或1")
 
 	code := e.INVALID_PARAMS
+	var msg string
 	if !valid.HasErrors() {
 		if !models.ExistTagByName(name) {
 			code = e.SUCCESS
@@ -64,11 +65,19 @@ func AddTag(c *gin.Context) {
 		} else {
 			code = e.ERROR_EXIST_TAG
 		}
+	} else {
+		for _, err := range valid.Errors {
+			msg += err.Message + " "
+		}
+	}
+
+	if msg == "" {
+		msg = e.GetMsg(code)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": code,
-		"msg":  e.GetMsg(code),
+		"msg":  msg,
 		"data": make(map[string]string),
 	})
 }
